@@ -9,6 +9,9 @@ let resultsSection;
 let yearsGrossInfo;
 let resultsTableHead;
 let resultsTableBody;
+let downloadBtn;
+
+let exportData = null;
 
 function getRequiredElement(id) {
   const element = document.getElementById(id);
@@ -30,11 +33,13 @@ function initApp() {
   yearsGrossInfo = getRequiredElement("yearsGrossInfo");
   resultsTableHead = getRequiredElement("resultsTableHead");
   resultsTableBody = getRequiredElement("resultsTableBody");
+  downloadBtn = getRequiredElement("downloadBtn");
 
   excelInput.addEventListener("change", updateProcessButtonState);
   dlpInput.addEventListener("change", updateProcessButtonState);
   authDateInput.addEventListener("change", updateProcessButtonState);
   processBtn.addEventListener("click", handleProcess);
+  downloadBtn.addEventListener("click", handleDownload);
 }
 
 function updateProcessButtonState() {
@@ -305,6 +310,60 @@ function renderResults(adrMap, intervals, yearsGross) {
     .join("");
 }
 
+function buildExportRows(adrMap, intervals, yearsGross) {
+  const sortedAdrs = Array.from(adrMap.keys()).sort((a, b) => a.localeCompare(b));
+  const intervalHeaders = intervals.map(
+    (interval, index) => `${interval.label} (${formatDate(interval.start)} - ${formatDate(interval.end)})`
+  );
+
+  const headerRow = ["ADR PT", ...intervalHeaders, "Total", "Adjusted ((Total / Years) x 2)", "Incremental Trend"];
+
+  const dataRows = sortedAdrs.map((adr) => {
+    const counts = adrMap.get(adr);
+    const rowTotal = counts.reduce((sum, value) => sum + value, 0);
+    const adjustedCount = calculateAdjustedCount(rowTotal, yearsGross);
+
+    return [
+      adr,
+      ...counts,
+      rowTotal,
+      Number(adjustedCount.toFixed(2)),
+      hasIncrementalTrend(counts) ? "Yes" : "No",
+    ];
+  });
+
+  return { headerRow, dataRows };
+}
+
+function downloadExcel() {
+  if (!exportData) {
+    return;
+  }
+
+  const { adrMap, intervals, yearsGross, dlpDate, authDate, intervalType } = exportData;
+  const { headerRow, dataRows } = buildExportRows(adrMap, intervals, yearsGross);
+
+  const sheetData = [
+    ["Frequency Tool Output"],
+    ["DLP Date", formatDate(dlpDate)],
+    ["Date of First Authorisation", formatDate(authDate)],
+    ["Interval Type", intervalType],
+    ["Years Gross", Number(yearsGross.toFixed(2))],
+    [],
+    headerRow,
+    ...dataRows,
+  ];
+
+  const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "ADR Counts");
+  XLSX.writeFile(workbook, "adr-interval-results.xlsx");
+}
+
+function handleDownload() {
+  downloadExcel();
+}
+
 async function handleProcess() {
   const file = excelInput.files[0];
   const dlpDate = new Date(dlpInput.value);
@@ -331,6 +390,15 @@ async function handleProcess() {
     const uniqueRows = deduplicateRows(rows);
     const intervals = buildIntervals(dlpDate, intervalType);
     const adrMap = countByInterval(uniqueRows, intervals);
+
+    exportData = {
+      adrMap,
+      intervals,
+      yearsGross,
+      dlpDate: normalizeDate(dlpDate),
+      authDate: normalizeDate(authDate),
+      intervalType,
+    };
 
     renderIntervals(intervals);
     renderResults(adrMap, intervals, yearsGross);

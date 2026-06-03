@@ -47,7 +47,10 @@
     </section>
 
     <section id="resultsSection" class="card hidden">
-      <h2>ADR Counts by Interval</h2>
+      <div class="results-header">
+        <h2>ADR Counts by Interval</h2>
+        <button type="button" id="downloadBtn" class="btn-secondary">Download Excel</button>
+      </div>
       <p id="yearsGrossInfo" class="years-gross-info"></p>
       <div class="table-wrap">
         <table id="resultsTable">
@@ -58,6 +61,6 @@
     </section>
   </div>
 
-  <script src="js/app.js?v=5"></script>
+  <script src="js/app.js?v=6"></script>
 </body>
 </html>
