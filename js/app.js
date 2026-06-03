@@ -10,8 +10,15 @@ let yearsGrossInfo;
 let resultsTableHead;
 let resultsTableBody;
 let downloadBtn;
+let tableScroll;
 
 let exportData = null;
+let resultsRows = [];
+let virtualScrollBound = false;
+
+const ROW_HEIGHT = 38;
+const VIRTUAL_BUFFER = 12;
+const DIRECT_RENDER_LIMIT = 80;
 
 function getRequiredElement(id) {
   const element = document.getElementById(id);
@@ -34,6 +41,7 @@ function initApp() {
   resultsTableHead = getRequiredElement("resultsTableHead");
   resultsTableBody = getRequiredElement("resultsTableBody");
   downloadBtn = getRequiredElement("downloadBtn");
+  tableScroll = getRequiredElement("tableScroll");
 
   excelInput.addEventListener("change", updateProcessButtonState);
   dlpInput.addEventListener("change", updateProcessButtonState);
@@ -277,60 +285,154 @@ function hasIncrementalTrend(counts) {
   return counts[2] > counts[1] && counts[1] > counts[0];
 }
 
-function renderResults(adrMap, intervals, yearsGross) {
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildResultsRows(adrMap, yearsGross) {
   const sortedAdrs = Array.from(adrMap.keys()).sort((a, b) => a.localeCompare(b));
 
-  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (from first authorisation to DLP). Adjusted count = (Total ÷ Years gross) × 2. Highlighted rows show a positive incremental trend (Interval 1 < Interval 2 < Interval 3).`;
+  return sortedAdrs.map((adr) => {
+    const counts = adrMap.get(adr);
+    const rowTotal = counts.reduce((sum, value) => sum + value, 0);
 
+    return {
+      adr,
+      counts,
+      rowTotal,
+      adjustedCount: calculateAdjustedCount(rowTotal, yearsGross),
+      highlighted: hasIncrementalTrend(counts),
+    };
+  });
+}
+
+function buildRowHtml(row) {
+  return `
+    <tr class="${row.highlighted ? "row-highlight" : ""}">
+      <td title="${escapeHtml(row.adr)}">${escapeHtml(row.adr)}</td>
+      ${row.counts.map((value) => `<td>${value}</td>`).join("")}
+      <td><strong>${row.rowTotal}</strong></td>
+      <td>${row.adjustedCount.toFixed(2)}</td>
+    </tr>
+  `;
+}
+
+function getColumnCount(intervals) {
+  return intervals.length + 3;
+}
+
+function renderTableHeader(intervals) {
   resultsTableHead.innerHTML = `
     <tr>
-      <th>ADR PT</th>
+      <th>PT(s)</th>
       ${intervals.map((interval) => `<th>${interval.label}<br><small>${formatDate(interval.start)} – ${formatDate(interval.end)}</small></th>`).join("")}
       <th>Total</th>
       <th>Adjusted<br><small>(Total ÷ Years) × 2</small></th>
     </tr>
   `;
-
-  resultsTableBody.innerHTML = sortedAdrs
-    .map((adr) => {
-      const counts = adrMap.get(adr);
-      const rowTotal = counts.reduce((sum, value) => sum + value, 0);
-      const adjustedCount = calculateAdjustedCount(rowTotal, yearsGross);
-      const shouldHighlight = hasIncrementalTrend(counts);
-
-      return `
-        <tr class="${shouldHighlight ? "row-highlight" : ""}">
-          <td>${adr}</td>
-          ${counts.map((value) => `<td>${value}</td>`).join("")}
-          <td><strong>${rowTotal}</strong></td>
-          <td>${adjustedCount.toFixed(2)}</td>
-        </tr>
-      `;
-    })
-    .join("");
 }
 
-function buildExportRows(adrMap, intervals, yearsGross) {
-  const sortedAdrs = Array.from(adrMap.keys()).sort((a, b) => a.localeCompare(b));
-  const intervalHeaders = intervals.map(
-    (interval, index) => `${interval.label} (${formatDate(interval.start)} - ${formatDate(interval.end)})`
+function renderAllRows() {
+  resultsTableBody.innerHTML = resultsRows.map(buildRowHtml).join("");
+}
+
+function renderVirtualRows() {
+  if (!resultsRows.length) {
+    resultsTableBody.innerHTML = "";
+    return;
+  }
+
+  const columnCount = getColumnCount(exportData.intervals);
+  const scrollTop = tableScroll.scrollTop;
+  const viewportHeight = tableScroll.clientHeight;
+  const headerHeight = resultsTableHead.offsetHeight || 0;
+  const visibleStart = Math.max(0, scrollTop - headerHeight);
+  const startIndex = Math.max(0, Math.floor(visibleStart / ROW_HEIGHT) - VIRTUAL_BUFFER);
+  const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + VIRTUAL_BUFFER * 2;
+  const endIndex = Math.min(resultsRows.length, startIndex + visibleCount);
+  const topSpacerHeight = startIndex * ROW_HEIGHT;
+  const bottomSpacerHeight = (resultsRows.length - endIndex) * ROW_HEIGHT;
+
+  const parts = [];
+
+  if (topSpacerHeight > 0) {
+    parts.push(`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${columnCount}" style="height:${topSpacerHeight}px;padding:0;border:none;"></td></tr>`);
+  }
+
+  for (let i = startIndex; i < endIndex; i += 1) {
+    parts.push(buildRowHtml(resultsRows[i]));
+  }
+
+  if (bottomSpacerHeight > 0) {
+    parts.push(`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${columnCount}" style="height:${bottomSpacerHeight}px;padding:0;border:none;"></td></tr>`);
+  }
+
+  resultsTableBody.innerHTML = parts.join("");
+}
+
+function bindVirtualScroll() {
+  if (virtualScrollBound) {
+    return;
+  }
+
+  let ticking = false;
+
+  tableScroll.addEventListener(
+    "scroll",
+    () => {
+      if (ticking) {
+        return;
+      }
+
+      ticking = true;
+      requestAnimationFrame(() => {
+        renderVirtualRows();
+        ticking = false;
+      });
+    },
+    { passive: true }
   );
 
-  const headerRow = ["ADR PT", ...intervalHeaders, "Total", "Adjusted ((Total / Years) x 2)", "Incremental Trend"];
+  virtualScrollBound = true;
+}
 
-  const dataRows = sortedAdrs.map((adr) => {
-    const counts = adrMap.get(adr);
-    const rowTotal = counts.reduce((sum, value) => sum + value, 0);
-    const adjustedCount = calculateAdjustedCount(rowTotal, yearsGross);
+function renderResults(adrMap, intervals, yearsGross) {
+  resultsRows = buildResultsRows(adrMap, yearsGross);
+  const useVirtualScroll = resultsRows.length > DIRECT_RENDER_LIMIT;
 
-    return [
-      adr,
-      ...counts,
-      rowTotal,
-      Number(adjustedCount.toFixed(2)),
-      hasIncrementalTrend(counts) ? "Yes" : "No",
-    ];
-  });
+  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (from first authorisation to DLP). Adjusted count = (Total ÷ Years gross) × 2. Highlighted rows show a positive incremental trend (Interval 1 < Interval 2 < Interval 3). Showing ${resultsRows.length.toLocaleString()} PT(s)${useVirtualScroll ? " — scroll to browse" : ""}.`;
+
+  renderTableHeader(intervals);
+  tableScroll.scrollTop = 0;
+
+  if (useVirtualScroll) {
+    bindVirtualScroll();
+    renderVirtualRows();
+    return;
+  }
+
+  renderAllRows();
+}
+
+function buildExportRows() {
+  const { intervals, yearsGross } = exportData;
+  const intervalHeaders = intervals.map(
+    (interval) => `${interval.label} (${formatDate(interval.start)} - ${formatDate(interval.end)})`
+  );
+
+  const headerRow = ["PT(s)", ...intervalHeaders, "Total", "Adjusted ((Total / Years) x 2)", "Incremental Trend"];
+
+  const dataRows = resultsRows.map((row) => [
+    row.adr,
+    ...row.counts,
+    row.rowTotal,
+    Number(row.adjustedCount.toFixed(2)),
+    row.highlighted ? "Yes" : "No",
+  ]);
 
   return { headerRow, dataRows };
 }
@@ -340,11 +442,10 @@ function downloadExcel() {
     return;
   }
 
-  const { adrMap, intervals, yearsGross, dlpDate, authDate, intervalType } = exportData;
-  const { headerRow, dataRows } = buildExportRows(adrMap, intervals, yearsGross);
+  const { yearsGross, dlpDate, authDate, intervalType } = exportData;
+  const { headerRow, dataRows } = buildExportRows();
 
   const sheetData = [
-    ["Frequency Tool Output"],
     ["DLP Date", formatDate(dlpDate)],
     ["Date of First Authorisation", formatDate(authDate)],
     ["Interval Type", intervalType],
@@ -401,6 +502,8 @@ async function handleProcess() {
     };
 
     renderIntervals(intervals);
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
     renderResults(adrMap, intervals, yearsGross);
 
     intervalSection.classList.remove("hidden");

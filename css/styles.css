@@ -286,6 +286,13 @@ table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
+}
+
+.virtual-spacer td {
+  padding: 0 !important;
+  border: none !important;
+  line-height: 0;
 }
 
 th,
@@ -326,6 +333,10 @@ td {
 td:first-child {
   font-weight: 500;
   color: var(--text);
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 tbody tr:hover {

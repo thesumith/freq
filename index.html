@@ -15,7 +15,7 @@
         <div class="field">
           <label for="excelFile">Excel File</label>
           <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
-          <small>Column A: Case ID &nbsp;|&nbsp; Column B: ADR PT &nbsp;|&nbsp; Column C: IRD Date</small>
+          <small>Column A: Case ID &nbsp;|&nbsp; Column B: PT(s) &nbsp;|&nbsp; Column C: IRD Date</small>
         </div>
 
         <div class="field">
@@ -52,7 +52,7 @@
         <button type="button" id="downloadBtn" class="btn-secondary">Download Excel</button>
       </div>
       <p id="yearsGrossInfo" class="years-gross-info"></p>
-      <div class="table-wrap">
+      <div class="table-wrap" id="tableScroll">
         <table id="resultsTable">
           <thead id="resultsTableHead"></thead>
           <tbody id="resultsTableBody"></tbody>
@@ -61,6 +61,6 @@
     </section>
   </div>
 
-  <script src="js/app.js?v=6"></script>
+  <script src="js/app.js?v=8"></script>
 </body>
 </html>
