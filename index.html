@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR Interval Counter</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>ADR Interval Counter</h1>
+      <p class="subtitle">Upload Excel data, deduplicate case ADRs, and count reports across 3 consecutive intervals.</p>
+    </header>
+
+    <section class="card controls">
+      <h2>Configuration</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label for="excelFile">Excel File</label>
+          <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
+          <small>Column A: Case ID &nbsp;|&nbsp; Column B: ADR PT &nbsp;|&nbsp; Column C: IRD Date</small>
+        </div>
+
+        <div class="field">
+          <label for="dlpDate">DLP Date</label>
+          <input type="date" id="dlpDate">
+        </div>
+
+        <div class="field">
+          <label for="intervalType">Interval</label>
+          <select id="intervalType">
+            <option value="quarterly">Quarterly</option>
+            <option value="biannual">Bi-annual</option>
+            <option value="yearly" selected>Yearly</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="button" id="processBtn" class="btn-primary" disabled>Process File</button>
+    </section>
+
+    <section id="statusSection" class="card status hidden">
+      <h2>Status</h2>
+      <div id="statusMessage"></div>
+    </section>
+
+    <section id="dedupSection" class="card hidden">
+      <h2>Deduplication Summary</h2>
+      <div class="summary-stats" id="dedupStats"></div>
+      <div class="table-wrap">
+        <table id="dedupTable">
+          <thead>
+            <tr>
+              <th>Case ID</th>
+              <th>ADR PT</th>
+              <th>IRD Date</th>
+              <th>Removed Duplicates</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="intervalSection" class="card hidden">
+      <h2>Time Intervals</h2>
+      <div id="intervalLabels" class="interval-labels"></div>
+    </section>
+
+    <section id="resultsSection" class="card hidden">
+      <h2>ADR Counts by Interval</h2>
+      <div class="table-wrap">
+        <table id="resultsTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="totals" id="intervalTotals"></div>
+    </section>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
