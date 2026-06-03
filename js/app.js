@@ -1,24 +1,46 @@
-const excelInput = document.getElementById("excelFile");
-const dlpInput = document.getElementById("dlpDate");
-const intervalSelect = document.getElementById("intervalType");
-const processBtn = document.getElementById("processBtn");
+let excelInput;
+let dlpInput;
+let intervalSelect;
+let processBtn;
+let statusSection;
+let statusMessage;
+let intervalSection;
+let intervalLabels;
+let resultsSection;
+let resultsTableHead;
+let resultsTableBody;
+let intervalTotals;
 
-const statusSection = document.getElementById("statusSection");
-const statusMessage = document.getElementById("statusMessage");
-const intervalSection = document.getElementById("intervalSection");
-const intervalLabels = document.getElementById("intervalLabels");
-const resultsSection = document.getElementById("resultsSection");
-const resultsTableHead = document.querySelector("#resultsTable thead");
-const resultsTableBody = document.querySelector("#resultsTable tbody");
-const intervalTotals = document.getElementById("intervalTotals");
+function getRequiredElement(id) {
+  const element = document.getElementById(id);
+  if (!element) {
+    throw new Error(`Missing required element: #${id}`);
+  }
+  return element;
+}
+
+function initApp() {
+  excelInput = getRequiredElement("excelFile");
+  dlpInput = getRequiredElement("dlpDate");
+  intervalSelect = getRequiredElement("intervalType");
+  processBtn = getRequiredElement("processBtn");
+  statusSection = getRequiredElement("statusSection");
+  statusMessage = getRequiredElement("statusMessage");
+  intervalSection = getRequiredElement("intervalSection");
+  intervalLabels = getRequiredElement("intervalLabels");
+  resultsSection = getRequiredElement("resultsSection");
+  resultsTableHead = getRequiredElement("resultsTableHead");
+  resultsTableBody = getRequiredElement("resultsTableBody");
+  intervalTotals = getRequiredElement("intervalTotals");
+
+  excelInput.addEventListener("change", updateProcessButtonState);
+  dlpInput.addEventListener("change", updateProcessButtonState);
+  processBtn.addEventListener("click", handleProcess);
+}
 
 function updateProcessButtonState() {
   processBtn.disabled = !(excelInput.files.length && dlpInput.value);
 }
-
-excelInput.addEventListener("change", updateProcessButtonState);
-dlpInput.addEventListener("change", updateProcessButtonState);
-processBtn.addEventListener("click", handleProcess);
 
 function showStatus(message, type = "info") {
   statusSection.classList.remove("hidden", "success", "warning", "error");
@@ -242,7 +264,7 @@ function renderResults(adrMap, intervals) {
   resultsTableHead.innerHTML = `
     <tr>
       <th>ADR PT</th>
-      ${intervals.map((interval, index) => `<th>${interval.label}<br><small>${formatDate(interval.start)} – ${formatDate(interval.end)}</small></th>`).join("")}
+      ${intervals.map((interval) => `<th>${interval.label}<br><small>${formatDate(interval.start)} – ${formatDate(interval.end)}</small></th>`).join("")}
       <th>Total</th>
     </tr>
   `;
@@ -320,3 +342,5 @@ async function handleProcess() {
     showStatus(`Error processing file: ${error.message}`, "error");
   }
 }
+
+document.addEventListener("DOMContentLoaded", initApp);
