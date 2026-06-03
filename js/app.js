@@ -312,7 +312,7 @@ function renderIntervals(intervals) {
 }
 
 function hasIncrementalTrend(counts) {
-  return counts[2] > counts[1] && counts[1] > counts[0];
+  return counts[0] > 0 && counts[1] > counts[0] && counts[2] > counts[1];
 }
 
 function escapeHtml(value) {
@@ -501,7 +501,7 @@ function renderResults(adrMap, intervals, yearsGross) {
   ptSearch.value = "";
   highlightOnlyFilter.checked = false;
 
-  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (first authorisation to DLP). Adjusted = (Total ÷ Years gross) × 2. Highlight rule: Interval 1 < Interval 2 < Interval 3 — rows meeting this increasing trend are highlighted.`;
+  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (first authorisation to DLP). Adjusted = (Total ÷ Years gross) × 2. Highlight rule: Interval 1 > 0 and Interval 1 < Interval 2 < Interval 3.`;
 
   renderTableHeader(intervals);
   bindVirtualScroll();
