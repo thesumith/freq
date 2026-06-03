@@ -3,17 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ADR Interval Counter</title>
+  <title>Frequency Tool</title>
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>ADR Interval Counter</h1>
-      <p class="subtitle">Upload Excel data, deduplicate case ADRs, and count reports across 3 consecutive intervals.</p>
-    </header>
-
     <section class="card controls">
       <h2>Configuration</h2>
       <div class="form-grid">
@@ -44,24 +39,6 @@
     <section id="statusSection" class="card status hidden">
       <h2>Status</h2>
       <div id="statusMessage"></div>
-    </section>
-
-    <section id="dedupSection" class="card hidden">
-      <h2>Deduplication Summary</h2>
-      <div class="summary-stats" id="dedupStats"></div>
-      <div class="table-wrap">
-        <table id="dedupTable">
-          <thead>
-            <tr>
-              <th>Case ID</th>
-              <th>ADR PT</th>
-              <th>IRD Date</th>
-              <th>Removed Duplicates</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
     </section>
 
     <section id="intervalSection" class="card hidden">

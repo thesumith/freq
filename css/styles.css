@@ -32,20 +32,6 @@ body {
   padding: 2rem 1.25rem 3rem;
 }
 
-header {
-  margin-bottom: 1.5rem;
-}
-
-header h1 {
-  margin: 0 0 0.35rem;
-  font-size: 1.85rem;
-}
-
-.subtitle {
-  margin: 0;
-  color: var(--muted);
-}
-
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -133,22 +119,6 @@ select {
   border-left-color: var(--danger);
 }
 
-.summary-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.stat-pill {
-  background: #eef2ff;
-  color: #3730a3;
-  padding: 0.4rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
 .interval-labels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -212,9 +182,5 @@ tbody tr:nth-child(even) {
 @media (max-width: 640px) {
   .container {
     padding: 1.25rem 0.85rem 2rem;
-  }
-
-  header h1 {
-    font-size: 1.45rem;
   }
 }

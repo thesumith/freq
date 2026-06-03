@@ -5,9 +5,6 @@ const processBtn = document.getElementById("processBtn");
 
 const statusSection = document.getElementById("statusSection");
 const statusMessage = document.getElementById("statusMessage");
-const dedupSection = document.getElementById("dedupSection");
-const dedupStats = document.getElementById("dedupStats");
-const dedupTableBody = document.querySelector("#dedupTable tbody");
 const intervalSection = document.getElementById("intervalSection");
 const intervalLabels = document.getElementById("intervalLabels");
 const resultsSection = document.getElementById("resultsSection");
@@ -68,7 +65,6 @@ function displayAdr(value) {
 
 function deduplicateRows(rows) {
   const grouped = new Map();
-  const duplicatesRemoved = [];
 
   for (const row of rows) {
     const key = `${row.caseId}||${normalizeAdr(row.adr)}`;
@@ -78,127 +74,68 @@ function deduplicateRows(rows) {
         caseId: row.caseId,
         adr: displayAdr(row.adr),
         irdDate: row.irdDate,
-        removedCount: 0,
       });
       continue;
     }
 
     const existing = grouped.get(key);
-    existing.removedCount += 1;
 
     if (row.irdDate && (!existing.irdDate || row.irdDate < existing.irdDate)) {
       existing.irdDate = row.irdDate;
     }
-
-    duplicatesRemoved.push(row);
   }
 
-  return {
-    uniqueRows: Array.from(grouped.values()),
-    duplicatesRemoved,
-  };
+  return Array.from(grouped.values());
 }
 
-function getQuarterIndex(date) {
-  return Math.floor(date.getMonth() / 3);
+const INTERVAL_MONTHS = {
+  quarterly: 3,
+  biannual: 6,
+  yearly: 12,
+};
+
+const INTERVAL_LABELS = {
+  quarterly: "Quarter",
+  biannual: "Half-year",
+  yearly: "Year",
+};
+
+function normalizeDate(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function getQuarterStart(year, quarterIndex) {
-  return new Date(year, quarterIndex * 3, 1);
+function addDays(date, days) {
+  const result = normalizeDate(date);
+  result.setDate(result.getDate() + days);
+  return result;
 }
 
-function getQuarterEnd(year, quarterIndex) {
-  return new Date(year, quarterIndex * 3 + 3, 0);
-}
-
-function getHalfYearIndex(date) {
-  return date.getMonth() < 6 ? 0 : 1;
-}
-
-function getHalfYearStart(year, halfIndex) {
-  return new Date(year, halfIndex === 0 ? 0 : 6, 1);
-}
-
-function getHalfYearEnd(year, halfIndex) {
-  return new Date(year, halfIndex === 0 ? 6 : 12, 0);
+function subtractMonths(date, months) {
+  const result = normalizeDate(date);
+  const day = result.getDate();
+  result.setDate(1);
+  result.setMonth(result.getMonth() - months);
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(day, lastDay));
+  return result;
 }
 
 function buildIntervals(dlpDate, intervalType) {
+  const dlp = normalizeDate(dlpDate);
+  const periodMonths = INTERVAL_MONTHS[intervalType];
+  const periodLabel = INTERVAL_LABELS[intervalType];
   const intervals = [];
-  const dlp = new Date(dlpDate.getFullYear(), dlpDate.getMonth(), dlpDate.getDate());
 
-  if (intervalType === "yearly") {
-    const endYear = dlp.getFullYear();
+  for (let i = 0; i < 3; i += 1) {
+    const periodsBeforeEnd = 2 - i;
+    const end = periodsBeforeEnd === 0 ? dlp : subtractMonths(dlp, periodsBeforeEnd * periodMonths);
+    const start = addDays(subtractMonths(end, periodMonths), 1);
 
-    for (let i = 2; i >= 0; i -= 1) {
-      const year = endYear - i;
-      const start = new Date(year, 0, 1);
-      let end = new Date(year, 11, 31);
-
-      if (year === endYear && dlp < end) {
-        end = dlp;
-      }
-
-      intervals.push({ label: `Year ${year}`, start, end });
-    }
-
-    return intervals;
-  }
-
-  if (intervalType === "quarterly") {
-    let year = dlp.getFullYear();
-    let quarter = getQuarterIndex(dlp);
-
-    for (let i = 0; i < 3; i += 1) {
-      const start = getQuarterStart(year, quarter);
-      let end = getQuarterEnd(year, quarter);
-
-      if (end > dlp) {
-        end = dlp;
-      }
-
-      intervals.unshift({
-        label: `Q${quarter + 1} ${year}`,
-        start,
-        end,
-      });
-
-      quarter -= 1;
-      if (quarter < 0) {
-        quarter = 3;
-        year -= 1;
-      }
-    }
-
-    return intervals;
-  }
-
-  if (intervalType === "biannual") {
-    let year = dlp.getFullYear();
-    let half = getHalfYearIndex(dlp);
-
-    for (let i = 0; i < 3; i += 1) {
-      const start = getHalfYearStart(year, half);
-      let end = getHalfYearEnd(year, half);
-
-      if (end > dlp) {
-        end = dlp;
-      }
-
-      intervals.unshift({
-        label: half === 0 ? `H1 ${year}` : `H2 ${year}`,
-        start,
-        end,
-      });
-
-      half -= 1;
-      if (half < 0) {
-        half = 1;
-        year -= 1;
-      }
-    }
-
-    return intervals;
+    intervals.push({
+      label: `${periodLabel} ${i + 1}`,
+      start,
+      end,
+    });
   }
 
   return intervals;
@@ -286,27 +223,6 @@ function readExcelRows(file) {
   });
 }
 
-function renderDedupSummary(originalCount, uniqueRows, duplicatesRemoved) {
-  dedupStats.innerHTML = `
-    <span class="stat-pill">Original rows: ${originalCount}</span>
-    <span class="stat-pill">Unique case + ADR: ${uniqueRows.length}</span>
-    <span class="stat-pill">Duplicates removed: ${duplicatesRemoved.length}</span>
-  `;
-
-  dedupTableBody.innerHTML = uniqueRows
-    .map(
-      (row) => `
-        <tr>
-          <td>${row.caseId}</td>
-          <td>${row.adr}</td>
-          <td>${row.irdDate ? formatDate(row.irdDate) : "—"}</td>
-          <td>${row.removedCount}</td>
-        </tr>
-      `
-    )
-    .join("");
-}
-
 function renderIntervals(intervals) {
   intervalLabels.innerHTML = intervals
     .map(
@@ -381,23 +297,21 @@ async function handleProcess() {
       return;
     }
 
-    const { uniqueRows, duplicatesRemoved } = deduplicateRows(rows);
+    const uniqueRows = deduplicateRows(rows);
     const intervals = buildIntervals(dlpDate, intervalType);
     const adrMap = countByInterval(uniqueRows, intervals);
 
-    renderDedupSummary(rows.length, uniqueRows, duplicatesRemoved);
     renderIntervals(intervals);
     renderResults(adrMap, intervals);
 
-    dedupSection.classList.remove("hidden");
     intervalSection.classList.remove("hidden");
     resultsSection.classList.remove("hidden");
 
     const missingDates = uniqueRows.filter((row) => !row.irdDate).length;
-    let message = `Processed ${rows.length} rows. ${duplicatesRemoved.length} duplicate case + ADR entries were removed.`;
+    let message = `Processed ${uniqueRows.length} records successfully.`;
 
     if (missingDates) {
-      message += ` Warning: ${missingDates} unique rows have missing or invalid IRD dates and were excluded from interval counts.`;
+      message += ` Warning: ${missingDates} records have missing or invalid IRD dates and were excluded from interval counts.`;
       showStatus(message, "warning");
     } else {
       showStatus(message, "success");
