@@ -3,22 +3,30 @@ let dlpInput;
 let authDateInput;
 let intervalSelect;
 let processBtn;
+let feedbackMessage;
 let intervalSection;
 let intervalLabels;
 let resultsSection;
 let yearsGrossInfo;
+let ptSearch;
+let highlightOnlyFilter;
+let filterSummary;
 let resultsTableHead;
 let resultsTableBody;
 let downloadBtn;
 let tableScroll;
 
 let exportData = null;
+let allResultsRows = [];
 let resultsRows = [];
 let virtualScrollBound = false;
+let isProcessing = false;
+let useVirtualScroll = false;
 
 const ROW_HEIGHT = 38;
 const VIRTUAL_BUFFER = 12;
 const DIRECT_RENDER_LIMIT = 80;
+const PROCESS_BTN_LABEL = "Process File";
 
 function getRequiredElement(id) {
   const element = document.getElementById(id);
@@ -34,10 +42,14 @@ function initApp() {
   authDateInput = getRequiredElement("authDate");
   intervalSelect = getRequiredElement("intervalType");
   processBtn = getRequiredElement("processBtn");
+  feedbackMessage = getRequiredElement("feedbackMessage");
   intervalSection = getRequiredElement("intervalSection");
   intervalLabels = getRequiredElement("intervalLabels");
   resultsSection = getRequiredElement("resultsSection");
   yearsGrossInfo = getRequiredElement("yearsGrossInfo");
+  ptSearch = getRequiredElement("ptSearch");
+  highlightOnlyFilter = getRequiredElement("highlightOnlyFilter");
+  filterSummary = getRequiredElement("filterSummary");
   resultsTableHead = getRequiredElement("resultsTableHead");
   resultsTableBody = getRequiredElement("resultsTableBody");
   downloadBtn = getRequiredElement("downloadBtn");
@@ -48,10 +60,28 @@ function initApp() {
   authDateInput.addEventListener("change", updateProcessButtonState);
   processBtn.addEventListener("click", handleProcess);
   downloadBtn.addEventListener("click", handleDownload);
+  ptSearch.addEventListener("input", handleFilterChange);
+  highlightOnlyFilter.addEventListener("change", handleFilterChange);
 }
 
 function updateProcessButtonState() {
-  processBtn.disabled = !(excelInput.files.length && dlpInput.value && authDateInput.value);
+  processBtn.disabled = isProcessing || !(excelInput.files.length && dlpInput.value && authDateInput.value);
+}
+
+function setProcessing(processing) {
+  isProcessing = processing;
+  processBtn.textContent = processing ? "Processing…" : PROCESS_BTN_LABEL;
+  updateProcessButtonState();
+}
+
+function showFeedback(message, type = "info") {
+  feedbackMessage.textContent = message;
+  feedbackMessage.className = `feedback feedback-${type}`;
+}
+
+function hideFeedback() {
+  feedbackMessage.textContent = "";
+  feedbackMessage.className = "feedback hidden";
 }
 
 function calculateYearsGross(authDate, dlpDate) {
@@ -310,6 +340,34 @@ function buildResultsRows(adrMap, yearsGross) {
   });
 }
 
+function getFilteredRows() {
+  let rows = allResultsRows;
+
+  if (highlightOnlyFilter.checked) {
+    rows = rows.filter((row) => row.highlighted);
+  }
+
+  const query = ptSearch.value.trim().toLowerCase();
+  if (query) {
+    rows = rows.filter((row) => row.adr.toLowerCase().includes(query));
+  }
+
+  return rows;
+}
+
+function updateFilterSummary() {
+  const total = allResultsRows.length;
+  const visible = resultsRows.length;
+  const highlighted = allResultsRows.filter((row) => row.highlighted).length;
+
+  if (visible === total) {
+    filterSummary.textContent = `${total.toLocaleString()} PT(s) · ${highlighted.toLocaleString()} highlighted`;
+    return;
+  }
+
+  filterSummary.textContent = `Showing ${visible.toLocaleString()} of ${total.toLocaleString()} PT(s)`;
+}
+
 function buildRowHtml(row) {
   return `
     <tr class="${row.highlighted ? "row-highlight" : ""}">
@@ -337,12 +395,25 @@ function renderTableHeader(intervals) {
 }
 
 function renderAllRows() {
+  if (!resultsRows.length) {
+    resultsTableBody.innerHTML = `
+      <tr>
+        <td colspan="${getColumnCount(exportData.intervals)}" class="empty-row">No PT(s) match the current filter.</td>
+      </tr>
+    `;
+    return;
+  }
+
   resultsTableBody.innerHTML = resultsRows.map(buildRowHtml).join("");
 }
 
 function renderVirtualRows() {
   if (!resultsRows.length) {
-    resultsTableBody.innerHTML = "";
+    resultsTableBody.innerHTML = `
+      <tr>
+        <td colspan="${getColumnCount(exportData.intervals)}" class="empty-row">No PT(s) match the current filter.</td>
+      </tr>
+    `;
     return;
   }
 
@@ -374,6 +445,15 @@ function renderVirtualRows() {
   resultsTableBody.innerHTML = parts.join("");
 }
 
+function renderVisibleRows() {
+  if (useVirtualScroll) {
+    renderVirtualRows();
+    return;
+  }
+
+  renderAllRows();
+}
+
 function bindVirtualScroll() {
   if (virtualScrollBound) {
     return;
@@ -384,7 +464,7 @@ function bindVirtualScroll() {
   tableScroll.addEventListener(
     "scroll",
     () => {
-      if (ticking) {
+      if (!useVirtualScroll || ticking) {
         return;
       }
 
@@ -400,33 +480,43 @@ function bindVirtualScroll() {
   virtualScrollBound = true;
 }
 
-function renderResults(adrMap, intervals, yearsGross) {
-  resultsRows = buildResultsRows(adrMap, yearsGross);
-  const useVirtualScroll = resultsRows.length > DIRECT_RENDER_LIMIT;
-
-  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (from first authorisation to DLP). Adjusted count = (Total ÷ Years gross) × 2. Highlighted rows show a positive incremental trend (Interval 1 < Interval 2 < Interval 3). Showing ${resultsRows.length.toLocaleString()} PT(s)${useVirtualScroll ? " — scroll to browse" : ""}.`;
-
-  renderTableHeader(intervals);
+function refreshTableView() {
+  resultsRows = getFilteredRows();
+  useVirtualScroll = resultsRows.length > DIRECT_RENDER_LIMIT;
+  updateFilterSummary();
   tableScroll.scrollTop = 0;
+  renderVisibleRows();
+}
 
-  if (useVirtualScroll) {
-    bindVirtualScroll();
-    renderVirtualRows();
+function handleFilterChange() {
+  if (!exportData) {
     return;
   }
 
-  renderAllRows();
+  refreshTableView();
+}
+
+function renderResults(adrMap, intervals, yearsGross) {
+  allResultsRows = buildResultsRows(adrMap, yearsGross);
+  ptSearch.value = "";
+  highlightOnlyFilter.checked = false;
+
+  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (first authorisation to DLP). Adjusted = (Total ÷ Years gross) × 2. Highlight rule: Interval 1 < Interval 2 < Interval 3 — rows meeting this increasing trend are highlighted.`;
+
+  renderTableHeader(intervals);
+  bindVirtualScroll();
+  refreshTableView();
 }
 
 function buildExportRows() {
-  const { intervals, yearsGross } = exportData;
+  const { intervals } = exportData;
   const intervalHeaders = intervals.map(
     (interval) => `${interval.label} (${formatDate(interval.start)} - ${formatDate(interval.end)})`
   );
 
   const headerRow = ["PT(s)", ...intervalHeaders, "Total", "Adjusted ((Total / Years) x 2)", "Incremental Trend"];
 
-  const dataRows = resultsRows.map((row) => [
+  const dataRows = allResultsRows.map((row) => [
     row.adr,
     ...row.counts,
     row.rowTotal,
@@ -471,20 +561,43 @@ async function handleProcess() {
   const authDate = new Date(authDateInput.value);
   const intervalType = intervalSelect.value;
 
-  if (!file || Number.isNaN(dlpDate.getTime()) || Number.isNaN(authDate.getTime())) {
+  if (!file) {
+    showFeedback("Please upload an Excel file.", "error");
+    return;
+  }
+
+  if (Number.isNaN(dlpDate.getTime())) {
+    showFeedback("Please select a valid DLP date.", "error");
+    return;
+  }
+
+  if (Number.isNaN(authDate.getTime())) {
+    showFeedback("Please select a valid first authorisation date.", "error");
     return;
   }
 
   const yearsGross = calculateYearsGross(authDate, dlpDate);
 
-  if (yearsGross === null || yearsGross === 0) {
+  if (yearsGross === null) {
+    showFeedback("First authorisation date must be on or before the DLP date.", "error");
     return;
   }
+
+  if (yearsGross === 0) {
+    showFeedback("Years gross must be greater than zero. Check your authorisation and DLP dates.", "error");
+    return;
+  }
+
+  setProcessing(true);
+  hideFeedback();
+  intervalSection.classList.add("hidden");
+  resultsSection.classList.add("hidden");
 
   try {
     const rows = await readExcelRows(file);
 
     if (!rows.length) {
+      showFeedback("No valid rows found. Check columns A (Case ID), B (PT(s)), and C (IRD date).", "error");
       return;
     }
 
@@ -508,8 +621,23 @@ async function handleProcess() {
 
     intervalSection.classList.remove("hidden");
     resultsSection.classList.remove("hidden");
+
+    const highlightedCount = allResultsRows.filter((row) => row.highlighted).length;
+    const missingDates = uniqueRows.filter((row) => !row.irdDate).length;
+    let message = `Processed ${rows.length.toLocaleString()} rows · ${allResultsRows.length.toLocaleString()} PT(s) · ${highlightedCount.toLocaleString()} highlighted.`;
+
+    if (missingDates) {
+      message += ` ${missingDates.toLocaleString()} record(s) had missing IRD dates and were excluded from interval counts.`;
+      showFeedback(message, "warning");
+      return;
+    }
+
+    showFeedback(message, "success");
   } catch (error) {
+    showFeedback(`Could not process file: ${error.message}`, "error");
     console.error(error);
+  } finally {
+    setProcessing(false);
   }
 }
 

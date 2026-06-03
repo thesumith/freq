@@ -39,6 +39,7 @@
       </div>
 
       <button type="button" id="processBtn" class="btn-primary" disabled>Process File</button>
+      <p id="feedbackMessage" class="feedback hidden" role="status" aria-live="polite"></p>
     </section>
 
     <section id="intervalSection" class="card hidden">
@@ -48,10 +49,18 @@
 
     <section id="resultsSection" class="card hidden">
       <div class="results-header">
-        <h2>ADR Counts by Interval</h2>
+        <h2>PT(s) Counts by Interval</h2>
         <button type="button" id="downloadBtn" class="btn-secondary">Download Excel</button>
       </div>
       <p id="yearsGrossInfo" class="years-gross-info"></p>
+      <div class="results-toolbar">
+        <input type="search" id="ptSearch" class="search-input" placeholder="Search PT(s)…" autocomplete="off">
+        <label class="filter-check">
+          <input type="checkbox" id="highlightOnlyFilter">
+          Show highlighted only
+        </label>
+        <span id="filterSummary" class="filter-summary"></span>
+      </div>
       <div class="table-wrap" id="tableScroll">
         <table id="resultsTable">
           <thead id="resultsTableHead"></thead>
@@ -61,6 +70,6 @@
     </section>
   </div>
 
-  <script src="js/app.js?v=8"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 </html>
