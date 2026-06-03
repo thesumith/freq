@@ -2,14 +2,11 @@ let excelInput;
 let dlpInput;
 let intervalSelect;
 let processBtn;
-let statusSection;
-let statusMessage;
 let intervalSection;
 let intervalLabels;
 let resultsSection;
 let resultsTableHead;
 let resultsTableBody;
-let intervalTotals;
 
 function getRequiredElement(id) {
   const element = document.getElementById(id);
@@ -24,14 +21,11 @@ function initApp() {
   dlpInput = getRequiredElement("dlpDate");
   intervalSelect = getRequiredElement("intervalType");
   processBtn = getRequiredElement("processBtn");
-  statusSection = getRequiredElement("statusSection");
-  statusMessage = getRequiredElement("statusMessage");
   intervalSection = getRequiredElement("intervalSection");
   intervalLabels = getRequiredElement("intervalLabels");
   resultsSection = getRequiredElement("resultsSection");
   resultsTableHead = getRequiredElement("resultsTableHead");
   resultsTableBody = getRequiredElement("resultsTableBody");
-  intervalTotals = getRequiredElement("intervalTotals");
 
   excelInput.addEventListener("change", updateProcessButtonState);
   dlpInput.addEventListener("change", updateProcessButtonState);
@@ -40,12 +34,6 @@ function initApp() {
 
 function updateProcessButtonState() {
   processBtn.disabled = !(excelInput.files.length && dlpInput.value);
-}
-
-function showStatus(message, type = "info") {
-  statusSection.classList.remove("hidden", "success", "warning", "error");
-  statusSection.classList.add(type === "info" ? "" : type);
-  statusMessage.textContent = message;
 }
 
 function formatDate(date) {
@@ -269,16 +257,10 @@ function renderResults(adrMap, intervals) {
     </tr>
   `;
 
-  const columnTotals = intervals.map(() => 0);
-
   resultsTableBody.innerHTML = sortedAdrs
     .map((adr) => {
       const counts = adrMap.get(adr);
       const rowTotal = counts.reduce((sum, value) => sum + value, 0);
-
-      counts.forEach((value, index) => {
-        columnTotals[index] += value;
-      });
 
       return `
         <tr>
@@ -289,16 +271,6 @@ function renderResults(adrMap, intervals) {
       `;
     })
     .join("");
-
-  intervalTotals.innerHTML = columnTotals
-    .map(
-      (total, index) => `
-        <div class="total-box">
-          Interval ${index + 1} total: ${total}
-        </div>
-      `
-    )
-    .join("");
 }
 
 async function handleProcess() {
@@ -307,7 +279,6 @@ async function handleProcess() {
   const intervalType = intervalSelect.value;
 
   if (!file || Number.isNaN(dlpDate.getTime())) {
-    showStatus("Please upload an Excel file and select a DLP date.", "error");
     return;
   }
 
@@ -315,7 +286,6 @@ async function handleProcess() {
     const rows = await readExcelRows(file);
 
     if (!rows.length) {
-      showStatus("No valid rows found. Ensure columns A, B, and C contain Case ID, ADR PT, and IRD date.", "error");
       return;
     }
 
@@ -328,18 +298,8 @@ async function handleProcess() {
 
     intervalSection.classList.remove("hidden");
     resultsSection.classList.remove("hidden");
-
-    const missingDates = uniqueRows.filter((row) => !row.irdDate).length;
-    let message = `Processed ${uniqueRows.length} records successfully.`;
-
-    if (missingDates) {
-      message += ` Warning: ${missingDates} records have missing or invalid IRD dates and were excluded from interval counts.`;
-      showStatus(message, "warning");
-    } else {
-      showStatus(message, "success");
-    }
   } catch (error) {
-    showStatus(`Error processing file: ${error.message}`, "error");
+    console.error(error);
   }
 }
 
