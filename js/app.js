@@ -268,11 +268,14 @@ function renderIntervals(intervals) {
     .join("");
 }
 
+function hasIncrementalTrend(counts) {
+  return counts[2] > counts[1] && counts[1] > counts[0];
+}
+
 function renderResults(adrMap, intervals, yearsGross) {
   const sortedAdrs = Array.from(adrMap.keys()).sort((a, b) => a.localeCompare(b));
-  const interval3Index = 2;
 
-  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (from first authorisation to DLP). Adjusted count = (Total ÷ Years gross) × 2. Highlighted rows have adjusted count less than Interval 3 count.`;
+  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (from first authorisation to DLP). Adjusted count = (Total ÷ Years gross) × 2. Highlighted rows show a positive incremental trend (Interval 1 < Interval 2 < Interval 3).`;
 
   resultsTableHead.innerHTML = `
     <tr>
@@ -287,9 +290,8 @@ function renderResults(adrMap, intervals, yearsGross) {
     .map((adr) => {
       const counts = adrMap.get(adr);
       const rowTotal = counts.reduce((sum, value) => sum + value, 0);
-      const interval3Count = counts[interval3Index];
       const adjustedCount = calculateAdjustedCount(rowTotal, yearsGross);
-      const shouldHighlight = adjustedCount < interval3Count;
+      const shouldHighlight = hasIncrementalTrend(counts);
 
       return `
         <tr class="${shouldHighlight ? "row-highlight" : ""}">
