@@ -24,6 +24,11 @@
         </div>
 
         <div class="field">
+          <label for="authDate">Date of First Authorisation of Drug</label>
+          <input type="date" id="authDate">
+        </div>
+
+        <div class="field">
           <label for="intervalType">Interval</label>
           <select id="intervalType">
             <option value="quarterly">Quarterly</option>
@@ -43,6 +48,7 @@
 
     <section id="resultsSection" class="card hidden">
       <h2>ADR Counts by Interval</h2>
+      <p id="yearsGrossInfo" class="years-gross-info"></p>
       <div class="table-wrap">
         <table id="resultsTable">
           <thead id="resultsTableHead"></thead>
@@ -52,6 +58,6 @@
     </section>
   </div>
 
-  <script src="js/app.js?v=3"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>

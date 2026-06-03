@@ -1,10 +1,12 @@
 let excelInput;
 let dlpInput;
+let authDateInput;
 let intervalSelect;
 let processBtn;
 let intervalSection;
 let intervalLabels;
 let resultsSection;
+let yearsGrossInfo;
 let resultsTableHead;
 let resultsTableBody;
 
@@ -19,21 +21,41 @@ function getRequiredElement(id) {
 function initApp() {
   excelInput = getRequiredElement("excelFile");
   dlpInput = getRequiredElement("dlpDate");
+  authDateInput = getRequiredElement("authDate");
   intervalSelect = getRequiredElement("intervalType");
   processBtn = getRequiredElement("processBtn");
   intervalSection = getRequiredElement("intervalSection");
   intervalLabels = getRequiredElement("intervalLabels");
   resultsSection = getRequiredElement("resultsSection");
+  yearsGrossInfo = getRequiredElement("yearsGrossInfo");
   resultsTableHead = getRequiredElement("resultsTableHead");
   resultsTableBody = getRequiredElement("resultsTableBody");
 
   excelInput.addEventListener("change", updateProcessButtonState);
   dlpInput.addEventListener("change", updateProcessButtonState);
+  authDateInput.addEventListener("change", updateProcessButtonState);
   processBtn.addEventListener("click", handleProcess);
 }
 
 function updateProcessButtonState() {
-  processBtn.disabled = !(excelInput.files.length && dlpInput.value);
+  processBtn.disabled = !(excelInput.files.length && dlpInput.value && authDateInput.value);
+}
+
+function calculateYearsGross(authDate, dlpDate) {
+  const auth = normalizeDate(authDate);
+  const dlp = normalizeDate(dlpDate);
+  const diffMs = dlp.getTime() - auth.getTime();
+
+  if (diffMs < 0) {
+    return null;
+  }
+
+  const days = diffMs / (1000 * 60 * 60 * 24);
+  return days / 365.25;
+}
+
+function calculateAdjustedCount(total, yearsGross) {
+  return (total / yearsGross) * 2;
 }
 
 function formatDate(date) {
@@ -246,14 +268,18 @@ function renderIntervals(intervals) {
     .join("");
 }
 
-function renderResults(adrMap, intervals) {
+function renderResults(adrMap, intervals, yearsGross) {
   const sortedAdrs = Array.from(adrMap.keys()).sort((a, b) => a.localeCompare(b));
+  const interval3Index = 2;
+
+  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (from first authorisation to DLP). Adjusted count = (Total ÷ Years gross) × 2. Highlighted rows have adjusted count less than Interval 3 count.`;
 
   resultsTableHead.innerHTML = `
     <tr>
       <th>ADR PT</th>
       ${intervals.map((interval) => `<th>${interval.label}<br><small>${formatDate(interval.start)} – ${formatDate(interval.end)}</small></th>`).join("")}
       <th>Total</th>
+      <th>Adjusted<br><small>(Total ÷ Years) × 2</small></th>
     </tr>
   `;
 
@@ -261,12 +287,16 @@ function renderResults(adrMap, intervals) {
     .map((adr) => {
       const counts = adrMap.get(adr);
       const rowTotal = counts.reduce((sum, value) => sum + value, 0);
+      const interval3Count = counts[interval3Index];
+      const adjustedCount = calculateAdjustedCount(rowTotal, yearsGross);
+      const shouldHighlight = adjustedCount < interval3Count;
 
       return `
-        <tr>
+        <tr class="${shouldHighlight ? "row-highlight" : ""}">
           <td>${adr}</td>
           ${counts.map((value) => `<td>${value}</td>`).join("")}
           <td><strong>${rowTotal}</strong></td>
+          <td>${adjustedCount.toFixed(2)}</td>
         </tr>
       `;
     })
@@ -276,9 +306,16 @@ function renderResults(adrMap, intervals) {
 async function handleProcess() {
   const file = excelInput.files[0];
   const dlpDate = new Date(dlpInput.value);
+  const authDate = new Date(authDateInput.value);
   const intervalType = intervalSelect.value;
 
-  if (!file || Number.isNaN(dlpDate.getTime())) {
+  if (!file || Number.isNaN(dlpDate.getTime()) || Number.isNaN(authDate.getTime())) {
+    return;
+  }
+
+  const yearsGross = calculateYearsGross(authDate, dlpDate);
+
+  if (yearsGross === null || yearsGross === 0) {
     return;
   }
 
@@ -294,7 +331,7 @@ async function handleProcess() {
     const adrMap = countByInterval(uniqueRows, intervals);
 
     renderIntervals(intervals);
-    renderResults(adrMap, intervals);
+    renderResults(adrMap, intervals, yearsGross);
 
     intervalSection.classList.remove("hidden");
     resultsSection.classList.remove("hidden");

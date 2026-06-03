@@ -153,6 +153,20 @@ tbody tr:nth-child(even) {
   background: #fafbfc;
 }
 
+tbody tr.row-highlight {
+  background: #fef3c7;
+}
+
+tbody tr.row-highlight:nth-child(even) {
+  background: #fde68a;
+}
+
+.years-gross-info {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 @media (max-width: 640px) {
   .container {
     padding: 1.25rem 0.85rem 2rem;
