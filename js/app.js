@@ -353,12 +353,14 @@ function buildResultsRows(adrMap, cumulativeMap, yearsGross, intervalCount) {
     const counts = adrMap.get(adr) || Array(intervalCount).fill(0);
     const rowTotal = cumulativeMap.get(adr) || 0;
 
+    const adjustedCount = calculateAdjustedCount(rowTotal, yearsGross);
+
     return {
       adr,
       counts,
       rowTotal,
-      adjustedCount: calculateAdjustedCount(rowTotal, yearsGross),
-      highlighted: hasIncrementalTrend(counts),
+      adjustedCount,
+      highlighted: hasIncrementalTrend(counts) && counts[2] > adjustedCount,
     };
   });
 }
@@ -525,7 +527,7 @@ function renderResults(adrMap, intervals, yearsGross, uniqueRows, authDate, dlpD
   ptSearch.value = "";
   highlightOnlyFilter.checked = false;
 
-  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (first authorisation to DLP). Total = cumulative count for each event till DLP. Adjusted = (Cumulative total ÷ Years gross) × 2. Highlight rule: Interval 1 > 0 and Interval 1 < Interval 2 < Interval 3.`;
+  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (first authorisation to DLP). Total = cumulative count for each event till DLP. Adjusted = (Cumulative total ÷ Years gross) × 2. Highlight rule: Interval 1 > 0 and Interval 1 < Interval 2 < Interval 3, and Interval 3 > Adjusted.`;
 
   renderTableHeader(intervals);
   bindVirtualScroll();
