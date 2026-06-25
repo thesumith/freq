@@ -249,6 +249,28 @@ function countByInterval(uniqueRows, intervals) {
   return adrMap;
 }
 
+function countCumulativeByAdr(uniqueRows, authDate, dlpDate) {
+  const auth = normalizeDate(authDate);
+  const dlp = normalizeDate(dlpDate);
+  const adrMap = new Map();
+
+  for (const row of uniqueRows) {
+    if (!row.irdDate) {
+      continue;
+    }
+
+    const time = row.irdDate.getTime();
+    if (time < auth.getTime() || time > dlp.getTime()) {
+      continue;
+    }
+
+    const adr = displayAdr(row.adr);
+    adrMap.set(adr, (adrMap.get(adr) || 0) + 1);
+  }
+
+  return adrMap;
+}
+
 function readExcelRows(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -323,12 +345,13 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-function buildResultsRows(adrMap, yearsGross) {
-  const sortedAdrs = Array.from(adrMap.keys()).sort((a, b) => a.localeCompare(b));
+function buildResultsRows(adrMap, cumulativeMap, yearsGross, intervalCount) {
+  const allAdrs = new Set([...adrMap.keys(), ...cumulativeMap.keys()]);
+  const sortedAdrs = Array.from(allAdrs).sort((a, b) => a.localeCompare(b));
 
   return sortedAdrs.map((adr) => {
-    const counts = adrMap.get(adr);
-    const rowTotal = counts.reduce((sum, value) => sum + value, 0);
+    const counts = adrMap.get(adr) || Array(intervalCount).fill(0);
+    const rowTotal = cumulativeMap.get(adr) || 0;
 
     return {
       adr,
@@ -388,8 +411,8 @@ function renderTableHeader(intervals) {
     <tr>
       <th>PT(s)</th>
       ${intervals.map((interval) => `<th>${interval.label}<br><small>${formatDate(interval.start)} – ${formatDate(interval.end)}</small></th>`).join("")}
-      <th>Total</th>
-      <th>Adjusted<br><small>(Total ÷ Years) × 2</small></th>
+      <th>Total<br><small>Cumulative (till DLP)</small></th>
+      <th>Adjusted<br><small>(Cumulative ÷ Years) × 2</small></th>
     </tr>
   `;
 }
@@ -496,12 +519,13 @@ function handleFilterChange() {
   refreshTableView();
 }
 
-function renderResults(adrMap, intervals, yearsGross) {
-  allResultsRows = buildResultsRows(adrMap, yearsGross);
+function renderResults(adrMap, intervals, yearsGross, uniqueRows, authDate, dlpDate) {
+  const cumulativeMap = countCumulativeByAdr(uniqueRows, authDate, dlpDate);
+  allResultsRows = buildResultsRows(adrMap, cumulativeMap, yearsGross, intervals.length);
   ptSearch.value = "";
   highlightOnlyFilter.checked = false;
 
-  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (first authorisation to DLP). Adjusted = (Total ÷ Years gross) × 2. Highlight rule: Interval 1 > 0 and Interval 1 < Interval 2 < Interval 3.`;
+  yearsGrossInfo.textContent = `Years gross: ${yearsGross.toFixed(2)} (first authorisation to DLP). Total = cumulative count for each event till DLP. Adjusted = (Cumulative total ÷ Years gross) × 2. Highlight rule: Interval 1 > 0 and Interval 1 < Interval 2 < Interval 3.`;
 
   renderTableHeader(intervals);
   bindVirtualScroll();
@@ -514,7 +538,7 @@ function buildExportRows() {
     (interval) => `${interval.label} (${formatDate(interval.start)} - ${formatDate(interval.end)})`
   );
 
-  const headerRow = ["PT(s)", ...intervalHeaders, "Total", "Adjusted ((Total / Years) x 2)", "Incremental Trend"];
+  const headerRow = ["PT(s)", ...intervalHeaders, "Total (cumulative, till DLP)", "Adjusted ((Cumulative / Years) x 2)", "Incremental Trend"];
 
   const dataRows = allResultsRows.map((row) => [
     row.adr,
@@ -617,7 +641,7 @@ async function handleProcess() {
     renderIntervals(intervals);
 
     await new Promise((resolve) => requestAnimationFrame(resolve));
-    renderResults(adrMap, intervals, yearsGross);
+    renderResults(adrMap, intervals, yearsGross, uniqueRows, authDate, dlpDate);
 
     intervalSection.classList.remove("hidden");
     resultsSection.classList.remove("hidden");
