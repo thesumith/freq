@@ -8,68 +8,92 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-  <div class="container">
-    <section class="card controls">
-      <h2>Configuration</h2>
-      <div class="form-grid">
-        <div class="field">
-          <label for="excelFile">Excel File</label>
-          <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
-          <small>Column A: Case ID &nbsp;|&nbsp; Column B: PT(s) &nbsp;|&nbsp; Column C: IRD Date</small>
+  <div class="desk">
+    <div class="chassis">
+      <header class="nameplate">
+        <div class="nameplate-screw nameplate-screw--tl" aria-hidden="true"></div>
+        <div class="nameplate-screw nameplate-screw--tr" aria-hidden="true"></div>
+        <div class="nameplate-screw nameplate-screw--bl" aria-hidden="true"></div>
+        <div class="nameplate-screw nameplate-screw--br" aria-hidden="true"></div>
+        <p class="nameplate-brand">Frequency Tool</p>
+        <p class="nameplate-sub">PT Interval Analysis Instrument</p>
+      </header>
+
+      <section class="panel controls">
+        <h2><span class="panel-title">Configuration</span></h2>
+        <div class="form-grid">
+          <div class="field">
+            <label for="excelFile">Excel File</label>
+            <div class="well">
+              <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
+            </div>
+            <small>Column A: Case ID &nbsp;|&nbsp; Column B: PT(s) &nbsp;|&nbsp; Column C: IRD Date</small>
+          </div>
+
+          <div class="field">
+            <label for="dlpDate">DLP Date</label>
+            <div class="well">
+              <input type="date" id="dlpDate">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="authDate">Date of First Authorisation of Drug</label>
+            <div class="well">
+              <input type="date" id="authDate">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="intervalType">Interval</label>
+            <div class="well well--select">
+              <select id="intervalType">
+                <option value="quarterly">Quarterly</option>
+                <option value="biannual">Bi-annual</option>
+                <option value="yearly" selected>Yearly</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        <div class="field">
-          <label for="dlpDate">DLP Date</label>
-          <input type="date" id="dlpDate">
+        <button type="button" id="processBtn" class="btn-primary" disabled>Process File</button>
+        <p id="feedbackMessage" class="feedback hidden" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="intervalSection" class="panel hidden">
+        <h2><span class="panel-title">Time Intervals</span></h2>
+        <div id="intervalLabels" class="interval-labels"></div>
+      </section>
+
+      <section id="resultsSection" class="panel hidden">
+        <div class="results-header">
+          <h2><span class="panel-title">PT(s) Counts by Interval</span></h2>
+          <button type="button" id="downloadBtn" class="btn-secondary">Download Excel</button>
         </div>
-
-        <div class="field">
-          <label for="authDate">Date of First Authorisation of Drug</label>
-          <input type="date" id="authDate">
+        <p id="yearsGrossInfo" class="years-gross-info"></p>
+        <div class="results-toolbar">
+          <div class="well well--search">
+            <input type="search" id="ptSearch" class="search-input" placeholder="Search PT(s)…" autocomplete="off">
+          </div>
+          <label class="filter-check">
+            <input type="checkbox" id="highlightOnlyFilter">
+            <span class="toggle-face" aria-hidden="true"></span>
+            Show highlighted only
+          </label>
+          <span id="filterSummary" class="filter-summary"></span>
         </div>
-
-        <div class="field">
-          <label for="intervalType">Interval</label>
-          <select id="intervalType">
-            <option value="quarterly">Quarterly</option>
-            <option value="biannual">Bi-annual</option>
-            <option value="yearly" selected>Yearly</option>
-          </select>
+        <div class="table-frame">
+          <div class="table-wrap" id="tableScroll">
+            <table id="resultsTable">
+              <thead id="resultsTableHead"></thead>
+              <tbody id="resultsTableBody"></tbody>
+            </table>
+          </div>
         </div>
-      </div>
-
-      <button type="button" id="processBtn" class="btn-primary" disabled>Process File</button>
-      <p id="feedbackMessage" class="feedback hidden" role="status" aria-live="polite"></p>
-    </section>
-
-    <section id="intervalSection" class="card hidden">
-      <h2>Time Intervals</h2>
-      <div id="intervalLabels" class="interval-labels"></div>
-    </section>
-
-    <section id="resultsSection" class="card hidden">
-      <div class="results-header">
-        <h2>PT(s) Counts by Interval</h2>
-        <button type="button" id="downloadBtn" class="btn-secondary">Download Excel</button>
-      </div>
-      <p id="yearsGrossInfo" class="years-gross-info"></p>
-      <div class="results-toolbar">
-        <input type="search" id="ptSearch" class="search-input" placeholder="Search PT(s)…" autocomplete="off">
-        <label class="filter-check">
-          <input type="checkbox" id="highlightOnlyFilter">
-          Show highlighted only
-        </label>
-        <span id="filterSummary" class="filter-summary"></span>
-      </div>
-      <div class="table-wrap" id="tableScroll">
-        <table id="resultsTable">
-          <thead id="resultsTableHead"></thead>
-          <tbody id="resultsTableBody"></tbody>
-        </table>
-      </div>
-    </section>
+      </section>
+    </div>
   </div>
 
-  <script src="js/app.js?v=10"></script>
+  <script src="js/app.js?v=11"></script>
 </body>
 </html>
