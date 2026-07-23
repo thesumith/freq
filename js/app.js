@@ -27,6 +27,8 @@ const ROW_HEIGHT = 38;
 const VIRTUAL_BUFFER = 12;
 const DIRECT_RENDER_LIMIT = 80;
 const PROCESS_BTN_LABEL = "Process File";
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_INDEX = Object.fromEntries(MONTH_NAMES.map((name, index) => [name.toLowerCase(), index]));
 
 function getRequiredElement(id) {
   const element = document.getElementById(id);
@@ -56,8 +58,10 @@ function initApp() {
   tableScroll = getRequiredElement("tableScroll");
 
   excelInput.addEventListener("change", updateProcessButtonState);
-  dlpInput.addEventListener("change", updateProcessButtonState);
-  authDateInput.addEventListener("change", updateProcessButtonState);
+  dlpInput.addEventListener("input", updateProcessButtonState);
+  dlpInput.addEventListener("change", normalizeDateInputField);
+  authDateInput.addEventListener("input", updateProcessButtonState);
+  authDateInput.addEventListener("change", normalizeDateInputField);
   processBtn.addEventListener("click", handleProcess);
   downloadBtn.addEventListener("click", handleDownload);
   ptSearch.addEventListener("input", handleFilterChange);
@@ -65,7 +69,17 @@ function initApp() {
 }
 
 function updateProcessButtonState() {
-  processBtn.disabled = isProcessing || !(excelInput.files.length && dlpInput.value && authDateInput.value);
+  processBtn.disabled =
+    isProcessing ||
+    !(excelInput.files.length && parseUserDate(dlpInput.value) && parseUserDate(authDateInput.value));
+}
+
+function normalizeDateInputField(event) {
+  const parsed = parseUserDate(event.target.value);
+  if (parsed) {
+    event.target.value = formatDate(parsed);
+  }
+  updateProcessButtonState();
 }
 
 function setProcessing(processing) {
@@ -103,9 +117,41 @@ function calculateAdjustedCount(total, yearsGross) {
 
 function formatDate(date) {
   const day = String(date.getDate()).padStart(2, "0");
-  const month = date.toLocaleString("en-GB", { month: "short" });
+  const month = MONTH_NAMES[date.getMonth()];
   const year = date.getFullYear();
   return `${day}-${month}-${year}`;
+}
+
+function parseUserDate(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{1,2})[-\/\s]([A-Za-z]{3})[-\/\s](\d{4})$/);
+  if (!match) {
+    return null;
+  }
+
+  const day = Number(match[1]);
+  const month = MONTH_INDEX[match[2].toLowerCase()];
+  const year = Number(match[3]);
+
+  if (month === undefined || day < 1 || day > 31) {
+    return null;
+  }
+
+  const parsed = new Date(year, month, day);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
 }
 
 function parseExcelDate(value) {
@@ -121,6 +167,11 @@ function parseExcelDate(value) {
   }
 
   if (typeof value === "string" && value.trim()) {
+    const fromUserFormat = parseUserDate(value);
+    if (fromUserFormat) {
+      return fromUserFormat;
+    }
+
     const parsed = new Date(value.trim());
     if (!Number.isNaN(parsed.getTime())) {
       return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
@@ -583,8 +634,8 @@ function handleDownload() {
 
 async function handleProcess() {
   const file = excelInput.files[0];
-  const dlpDate = new Date(dlpInput.value);
-  const authDate = new Date(authDateInput.value);
+  const dlpDate = parseUserDate(dlpInput.value);
+  const authDate = parseUserDate(authDateInput.value);
   const intervalType = intervalSelect.value;
 
   if (!file) {
@@ -592,15 +643,18 @@ async function handleProcess() {
     return;
   }
 
-  if (Number.isNaN(dlpDate.getTime())) {
-    showFeedback("Please select a valid DLP date.", "error");
+  if (!dlpDate) {
+    showFeedback("Please enter a valid DLP date (dd-MMM-yyyy).", "error");
     return;
   }
 
-  if (Number.isNaN(authDate.getTime())) {
-    showFeedback("Please select a valid first authorisation date.", "error");
+  if (!authDate) {
+    showFeedback("Please enter a valid first authorisation date (dd-MMM-yyyy).", "error");
     return;
   }
+
+  dlpInput.value = formatDate(dlpDate);
+  authDateInput.value = formatDate(authDate);
 
   const yearsGross = calculateYearsGross(authDate, dlpDate);
 
