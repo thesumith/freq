@@ -122,6 +122,15 @@ function formatDate(date) {
   return `${day}-${month}-${year}`;
 }
 
+function getUploadedFileBaseName(fileName) {
+  const trimmed = String(fileName ?? "").trim();
+  if (!trimmed) {
+    return "export";
+  }
+
+  return trimmed.replace(/\.(xlsx|xls|csv)$/i, "") || "export";
+}
+
 function parseUserDate(value) {
   if (!value || typeof value !== "string") {
     return null;
@@ -624,8 +633,8 @@ function downloadExcel() {
 
   const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "ADR Counts");
-  XLSX.writeFile(workbook, "adr-interval-results.xlsx");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Trend Analysis");
+  XLSX.writeFile(workbook, `${exportData.sourceFileBase}_Trend_output.xlsx`);
 }
 
 function handleDownload() {
@@ -692,6 +701,7 @@ async function handleProcess() {
       dlpDate: normalizeDate(dlpDate),
       authDate: normalizeDate(authDate),
       intervalType,
+      sourceFileBase: getUploadedFileBaseName(file.name),
     };
 
     renderIntervals(intervals);
